@@ -23,35 +23,11 @@ API key: `~/.hevy/.api_key` (plain text, no quotes)
 2. **Read `references/api-reference.md`** - understand JSON structure and API quirks
 3. Map exercises to IDs:
    - First: search `references/exercises-by-category.md` (standard Hevy exercises)
-   - Then: check `~/.hevy/custom-exercises.md` for user's custom exercises (if exists)
-   - If not found in either: fetch from API and cache (see Custom Exercises below)
+   - Then: check `~/.hevy/custom-exercises.md` (if exists)
+   - If not found: fetch custom exercises from API (see api-reference.md) and cache to `~/.hevy/custom-exercises.md`
    - If still no match: create custom exercise via API (see api-reference.md)
 4. Build routine JSON - use `references/routine-examples.md` as template
 5. Create/update via scripts
-
-## Custom Exercises
-
-User's custom exercises are cached locally at `~/.hevy/custom-exercises.md`.
-
-**When to fetch/update the cache:**
-- If `~/.hevy/custom-exercises.md` doesn't exist
-- If user requests a refresh
-- If an exercise isn't found in either file
-
-**How to fetch and cache:**
-```bash
-mkdir -p ~/.hevy
-scripts/hevy-api GET '/v1/exercise_templates?page=1&pageSize=100' | jq -r '
-  .exercise_templates
-  | group_by(.primary_muscle_group)
-  | .[]
-  | "## \(.[0].primary_muscle_group)\n" + (
-      [.[] | "- `\(.id)` | \(.title) | \(.exercise_type) | \(.equipment)"] | join("\n")
-    )
-' > ~/.hevy/custom-exercises.md
-```
-
-**Always search both files** when matching exercises to find the best match.
 
 ## API Access
 

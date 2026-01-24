@@ -53,6 +53,21 @@ List all available exercise templates (both built-in and custom).
 **Muscle groups:**
 - `quadriceps`, `hamstrings`, `glutes`, `calves`, `chest`, `back`, `shoulders`, `biceps`, `triceps`, `forearms`, `abdominals`, `obliques`, `traps`, `lats`, `lower_back`, `upper_back`, `full_body`, `cardio`
 
+#### Caching Custom Exercises
+
+Fetch and cache user's custom exercises to `~/.hevy/custom-exercises.md`:
+```bash
+mkdir -p ~/.hevy
+scripts/hevy-api GET '/v1/exercise_templates?page=1&pageSize=100' | jq -r '
+  .exercise_templates
+  | group_by(.primary_muscle_group)
+  | .[]
+  | "## \(.[0].primary_muscle_group)\n" + (
+      [.[] | "- `\(.id)` | \(.title) | \(.exercise_type) | \(.equipment)"] | join("\n")
+    )
+' > ~/.hevy/custom-exercises.md
+```
+
 #### POST /v1/exercise_templates
 Create a custom exercise.
 
