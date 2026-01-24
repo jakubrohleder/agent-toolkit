@@ -41,17 +41,7 @@ Full list: `references/exercises-by-category.md`
 
 ## Pre-Submit Checklist
 
-Before POST/PUT, verify:
-
-```
-[ ] All exercise_template_ids exist in exercises-by-category.md or custom cache
-[ ] Set properties match exercise type (weight_kg only for weight_reps, etc.)
-[ ] No @ symbol anywhere in notes fields
-[ ] JSON wrapped: {"routine": {...}}
-[ ] For PUT: removed id, folder_id, created_at, updated_at, index, title
-[ ] Superset exercises: only last one has rest_seconds > 0
-[ ] folder_id is valid (fetched from /v1/routine_folders)
-```
+See **SKILL.md → Pre-Submission Validation** for full 6-point mandatory checklist.
 
 ## Common Mistakes
 

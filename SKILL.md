@@ -16,6 +16,8 @@ description: |
 
 # Hevy Routine Creator
 
+**Before starting**: The Hevy API is fragile. Small mistakes (wrong field, `@` in notes, missing wrapper) cause silent failures. Follow this skill exactly—shortcuts cause debugging pain.
+
 API key location: `~/.hevy/.api_key` (plain text, no quotes)
 
 ## Workflow
@@ -39,18 +41,17 @@ API key location: `~/.hevy/.api_key` (plain text, no quotes)
   - `routine.id`, `routine.folder_id`, `routine.created_at`, `routine.updated_at`
   - `exercises[].index`, `exercises[].title`
   - `sets[].index`
-- **NEVER** mismatch set properties and exercise type:
-  | Type | Valid Properties |
-  |------|------------------|
-  | `weight_reps` | `weight_kg`, `reps` |
-  | `reps_only` | `reps` |
-  | `duration` | `duration_seconds` |
-  | `distance_duration` | `distance_meters`, `duration_seconds` |
+- **NEVER** mismatch set properties and exercise type (see `quick-reference.md` for table):
+  - `weight_reps` → `weight_kg`, `reps`
+  - `reps_only` → `reps` only (no weight!)
+  - `duration` → `duration_seconds`
+  - `distance_duration` → `distance_meters`, `duration_seconds`
 - **NEVER** set `rest_seconds` on first exercise of superset (only last gets rest)
 - **NEVER** use `pageSize` > 10 for `/v1/routine_folders`
 - **NEVER** assume exercise name matches exactly - search by keyword, verify ID against `exercises-by-category.md`
 - **NEVER** create custom exercise without first searching partial name variations (e.g., "Squat" not just "Back Squat")
 - **NEVER** guess exercise IDs - always verify against reference files or API response
+- **NEVER** worry about `notes` field - can be omitted entirely or empty string `""`
 
 ## Parsing Workout Plans
 
