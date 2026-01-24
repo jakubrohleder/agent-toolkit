@@ -1,19 +1,14 @@
 ---
 name: hevy
 description: |
-  Create and edit workout routines in the Hevy fitness app via API. User-invocable with /hevy.
+  Create and edit workout routines in Hevy fitness app via API. User-invocable with /hevy.
 
-  Use when: (1) User wants to create a Hevy routine from a training plan or description,
-  (2) User asks to add exercises to Hevy, (3) User mentions "hevy routine" or similar,
-  (4) User shares a training program (text, PDF, image) to convert to Hevy format,
-  (5) User wants to edit, update, or rename an existing Hevy routine,
-  (6) User asks how to use the Hevy API or about routine structure.
+  Use when: User wants to create/edit Hevy routines, convert training programs (text/PDF/image)
+  to Hevy format, or work with the Hevy API.
 
-  Triggers: "/hevy", "create hevy routine", "add to hevy", "hevy workout",
-  "training plan to hevy", "convert workout", "exercise routine", "edit hevy",
-  "update routine", "hevy api", "modify workout", "gym routine", "gym program",
-  "lifting program", "strength program", "PPL", "push pull legs", "5x5", "531",
-  "GZCLP", "nSuns", "import workout", "sync to hevy", "weightlifting routine"
+  Triggers: "/hevy", "hevy routine", "add to hevy", "gym routine", "gym program",
+  "lifting program", "training plan", "PPL", "push pull legs", "5x5", "531",
+  "GZCLP", "nSuns", "import workout", "sync to hevy", "weightlifting"
 ---
 
 # Hevy Routine Creator
