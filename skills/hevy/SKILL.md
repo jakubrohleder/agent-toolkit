@@ -20,8 +20,6 @@ description: |
 
 **Before starting**: The Hevy API is fragile. Small mistakes (wrong field, `@` in notes, missing wrapper) cause silent failures. Follow this skill exactly—shortcuts cause debugging pain.
 
-API key location: `~/.hevy/.api_key` (plain text, no quotes)
-
 ## Workflow
 
 1. Parse workout plan - extract exercises, sets, reps, weights, rest times
@@ -91,11 +89,13 @@ Then map the details:
 - "bodyweight" exercises - typically `reps_only` type, no weight field
 - "BW + 20kg" - use `bodyweight_weighted` exercise variant
 
-**Before creating custom exercise:**
-- Search partial name in exercises-by-category.md (e.g., "row" finds 15+ variations)
-- Check for equipment variants (Barbell, Dumbbell, Cable, Machine)
-- Verify no similar exercise exists under different name
-- Only create if genuinely missing from Hevy's 400+ built-in exercises
+**Before creating custom exercise, ask:**
+- Did I search partial names? (e.g., "row" finds 15+ variations)
+- Did I check equipment variants? (Barbell, Dumbbell, Cable, Machine, Smith)
+- Could it exist under a different name? ("Skull Crushers" = "Lying Tricep Extension")
+- Is this genuinely missing from Hevy's 400+ built-in exercises?
+
+If all yes → create custom. Otherwise, use the existing match.
 
 ## Exercise ID Lookup
 
@@ -124,10 +124,10 @@ Create custom exercise (ONLY after confirming no similar exists)
 For programs with many routines (e.g., 12-week plan):
 
 1. **Create folder first** - Group routines logically
-2. **Process in batches** - Create 3-5 routines, verify success, continue
+2. **Process in batches** - Create 3-5 routines, verify success, continue. Wait 2-3s between calls to avoid rate limits.
 3. **Use consistent naming** - `T{week} {day} - {description}` (e.g., "T1 Mon - Upper")
 4. **Track progress** - Note created routine IDs in case of partial failure
-5. **If one fails** - See `api-reference.md#partial-success-recovery`
+5. **If one fails** - Fix and retry that routine only; don't restart the batch
 
 ## Pre-Submission Validation
 
