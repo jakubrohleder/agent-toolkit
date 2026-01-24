@@ -51,7 +51,8 @@ API key location: `~/.hevy/.api_key` (plain text, no quotes)
 - **NEVER** assume exercise name matches exactly - search by keyword, verify ID against `exercises-by-category.md`
 - **NEVER** create custom exercise without first searching partial name variations (e.g., "Squat" not just "Back Squat")
 - **NEVER** guess exercise IDs - always verify against reference files or API response
-- **NEVER** worry about `notes` field - can be omitted entirely or empty string `""`
+
+**Note:** The `notes` field is optional—can be omitted entirely or set to empty string `""`.
 
 ## Parsing Workout Plans
 

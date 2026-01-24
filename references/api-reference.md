@@ -244,14 +244,7 @@ Log a completed workout.
 
 ## Set Properties
 
-Properties depend on exercise type:
-
-| Exercise Type | Set Properties |
-|---------------|----------------|
-| `weight_reps` | `weight_kg`, `reps` |
-| `reps_only` | `reps` |
-| `duration` | `duration_seconds` |
-| `distance_duration` | `distance_meters`, `duration_seconds` |
+See `quick-reference.md` for the Exercise Type → Set Properties table.
 
 All properties accept `number` or `null`.
 
