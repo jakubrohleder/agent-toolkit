@@ -58,8 +58,6 @@ Before building JSON, think through:
 - **Structure**: Are exercises grouped (supersets/circuits) or sequential with rest?
 - **Ambiguity**: What's implicit? Missing weights = leave empty. Missing rest = use 90s default.
 
-Then map the details:
-
 **What type of set?**
 | Input Pattern | Set Type | Notes |
 |---------------|----------|-------|
