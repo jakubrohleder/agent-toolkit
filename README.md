@@ -4,4 +4,6 @@ A repository of agent skills for improving daily work efficiency with Claude Cod
 
 ## Installation
 
-Install skills via [skills.sh](https://skills.sh/)
+```
+npx skills add jakubrohleder/agent-toolkit
+```
