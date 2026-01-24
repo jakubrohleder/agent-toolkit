@@ -11,7 +11,9 @@ description: |
 
   Triggers: "/hevy", "create hevy routine", "add to hevy", "hevy workout",
   "training plan to hevy", "convert workout", "exercise routine", "edit hevy",
-  "update routine", "hevy api", "modify workout"
+  "update routine", "hevy api", "modify workout", "gym routine", "gym program",
+  "lifting program", "strength program", "PPL", "push pull legs", "5x5", "531",
+  "GZCLP", "nSuns", "import workout", "sync to hevy", "weightlifting routine"
 ---
 
 # Hevy Routine Creator
@@ -58,7 +60,12 @@ API key location: `~/.hevy/.api_key` (plain text, no quotes)
 
 ## Parsing Workout Plans
 
-Before building JSON, ask:
+Before building JSON, think through:
+- **Goal**: Strength (low rep, high weight), hypertrophy (moderate rep), or conditioning (high rep/time)?
+- **Structure**: Are exercises grouped (supersets/circuits) or sequential with rest?
+- **Ambiguity**: What's implicit? Missing weights = leave empty. Missing rest = use 90s default.
+
+Then map the details:
 
 **What type of set?**
 | Input Pattern | Set Type | Notes |
@@ -169,7 +176,13 @@ rm -rf .tmp-hevy
 2. Verify JSON structure against routine-examples.md
 3. Test with minimal routine (1 exercise, 1 set) to isolate issue
 
-**For complex failures or partial success:** Read `references/api-reference.md#error-recovery`
+**Error recovery:**
+- **500 error**: Wait 30s, retry once. If persists, API is down.
+- **429 rate limit**: Wait 60s before retry. Batch operations slower.
+- **401 unauthorized**: Check `~/.hevy/.api_key` exists and has no quotes/whitespace.
+- **Partial success** (some routines created, some failed): Note successful IDs, fix failed JSON, continue.
+
+**For complex failures:** Read `references/api-reference.md#error-recovery`
 
 ## Resources
 
