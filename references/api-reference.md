@@ -1,5 +1,8 @@
 # Hevy API Reference
 
+> **Before making API calls, read the "API Quirks" section at the bottom.**
+> The `@` symbol bug and pagination limits cause silent failures.
+
 Base URL: `https://api.hevyapp.com`
 
 ## Authentication
@@ -263,7 +266,7 @@ Exercises with the same `superset_id` (integer) are grouped as a superset. Use `
 - Custom exercises have UUID-style IDs (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 - Built-in exercises have 8-character alphanumeric IDs (`D04AC939`)
 
-## API Quirks
+## API Quirks - CRITICAL - READ BEFORE ANY API CALL
 
 ### CRITICAL: The `@` Symbol Bug
 The `@` symbol in `notes` fields causes **silent Bad Request errors** (returns HTML instead of JSON).
@@ -293,3 +296,41 @@ For sets where reps are unknown (max effort tests), use `null`:
 
 ### Folder IDs
 Query with `scripts/hevy-api GET /v1/routine_folders` to get current folder IDs.
+
+## Error Recovery
+
+### Script Failures
+
+| Error | Cause | Recovery |
+|-------|-------|----------|
+| `Permission denied` | Script not executable | `chmod +x scripts/hevy-api` |
+| `api-key: command not found` | Malformed API key file | Ensure `~/.hevy/.api_key` contains only the key (no quotes, no newlines) |
+| `curl: (6) Could not resolve host` | Network issue | Check internet connection, retry |
+| `401 Unauthorized` | Invalid or expired API key | Regenerate key at hevy.com settings |
+
+### API Response Errors
+
+| Response | Meaning | Recovery |
+|----------|---------|----------|
+| HTML instead of JSON | `@` in notes OR malformed request | Remove `@` symbols, validate JSON structure |
+| `{"error": "field not allowed"}` | Read-only field in PUT | Remove fields per NEVER list |
+| `{"error": "exercise_template_id not found"}` | Invalid exercise ID | Verify ID in exercises-by-category.md |
+| Empty `{"routines": []}` | Wrong page or no results | Check `page_count`, adjust pagination |
+| `500 Internal Server Error` | Hevy API issue | Wait 30s, retry; if persistent, simplify request |
+
+### Partial Success Recovery
+
+If creating multiple routines and one fails:
+1. Note which routines succeeded (check response IDs)
+2. Identify failed routine's specific error
+3. Fix the issue in that routine only
+4. Create only the failed routine (don't duplicate successful ones)
+
+### Ambiguous Exercise Matching
+
+When user input matches multiple exercises:
+1. List all matches with IDs and equipment types
+2. Ask user to clarify (e.g., "Did you mean Squat (Barbell) or Squat (Machine)?")
+3. If user doesn't specify, default to most common variant:
+   - Free weights > Machine > Cable > Bodyweight
+   - Barbell > Dumbbell > Kettlebell
