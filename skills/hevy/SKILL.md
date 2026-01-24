@@ -183,10 +183,3 @@ rm -rf .tmp-hevy
 - **Partial success** (some routines created, some failed): Note successful IDs, fix failed JSON, continue.
 
 **For complex failures:** Read `references/api-reference.md#error-recovery`
-
-## Resources
-
-- `references/api-reference.md` - **Read first!** JSON structure, set types, API quirks
-- `references/exercises-by-category.md` - All exercises by muscle group
-- `references/routine-examples.md` - JSON templates
-- `references/quick-reference.md` - Common exercise IDs and set types
