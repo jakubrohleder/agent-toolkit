@@ -92,25 +92,15 @@ If all yes → create custom. Otherwise, use the existing match.
 
 ## Exercise ID Lookup
 
-```
-User input (e.g., "squat")
-    ↓
-Search quick-reference.md (common exercises)
-    ↓ Found? → Use ID
-    ↓ Not found
-Search exercises-by-category.md (partial match, check muscle group)
-    ↓ Found? → Use ID
-    ↓ Multiple matches? → Ask user: "Squat (Barbell), Squat (Machine), or Goblet Squat?"
-    ↓                     If no response: Barbell > Dumbbell > Machine > Bodyweight
-    ↓ Not found
-Check ~/.hevy/custom-exercises.md
-    ↓ Found? → Use ID
-    ↓ Not found
-Fetch from API: scripts/hevy-api GET '/v1/exercise_templates?page=1&pageSize=100'
-    ↓ Found? → Cache to ~/.hevy/custom-exercises.md, use ID
-    ↓ Not found
-Create custom exercise (ONLY after confirming no similar exists)
-```
+| Step | Action | If Found | If Not Found |
+|------|--------|----------|--------------|
+| 1 | Search `quick-reference.md` | Use ID ✓ | Continue → |
+| 2 | Search `exercises-by-category.md` (partial match) | Use ID ✓ | Continue → |
+| 3 | Check `~/.hevy/custom-exercises.md` | Use ID ✓ | Continue → |
+| 4 | Fetch API: `scripts/hevy-api GET '/v1/exercise_templates?page=1&pageSize=100'` | Cache + Use ID ✓ | Continue → |
+| 5 | Create custom exercise | — | — |
+
+**Multiple matches at step 2?** Ask user to pick variant. If no response, use default priority: Barbell > Dumbbell > Machine > Bodyweight.
 
 ## Bulk Operations (Multi-Week Programs)
 
@@ -132,6 +122,11 @@ For programs with many routines (e.g., 12-week plan):
 4. **Wrapper present** - JSON is `{"routine": {...}}` not bare object
 5. **No read-only fields** (for PUT) - Remove `id`, `folder_id`, `created_at`, `updated_at`, `index`, `title`
 6. **Superset rest correct** - Only last exercise in superset has `rest_seconds > 0`
+
+**Quick validation command:**
+```bash
+jq -e '.routine and (.routine.exercises | length > 0) and ([.. | .notes? // empty | select(contains("@"))] | length == 0)' .tmp-hevy/routine.json && echo "✓ Valid" || echo "✗ Check: wrapper, exercises, @ symbols"
+```
 
 If validation fails, fix before proceeding. Do NOT attempt API call with known issues.
 
@@ -162,17 +157,12 @@ rm -rf .tmp-hevy
 | "field not allowed" on PUT | Read-only field included | Remove fields per NEVER list above |
 | Exercise not found | Typo or custom exercise | Search partial name, check customs, create if needed |
 | Empty response | Wrong pagination | Check `page_count`, use correct `pageSize` |
-| Folder not found | Wrong folder_id | Fetch current folders: `scripts/hevy-api GET /v1/routine_folders` |
+| Folder not found | Wrong folder_id | Fetch: `scripts/hevy-api GET /v1/routine_folders` |
+| 401 Unauthorized | Invalid/expired API key | Check `~/.hevy/.api_key` has no quotes/whitespace |
+| 429 Rate limit | Too many requests | Wait 60s, slow down batch operations |
+| 500 Server error | Hevy API issue | Wait 30s, retry once; if persists, API is down |
+| Partial batch failure | One routine failed | Note successful IDs, fix failed JSON only, continue |
 
-**If API call fails:**
-1. Check response for error message
-2. Verify JSON structure against routine-examples.md
-3. Test with minimal routine (1 exercise, 1 set) to isolate issue
-
-**Error recovery:**
-- **500 error**: Wait 30s, retry once. If persists, API is down.
-- **429 rate limit**: Wait 60s before retry. Batch operations slower.
-- **401 unauthorized**: Check `~/.hevy/.api_key` exists and has no quotes/whitespace.
-- **Partial success** (some routines created, some failed): Note successful IDs, fix failed JSON, continue.
+**General debugging:** Check error message → Verify JSON against `routine-examples.md` → Test minimal routine (1 exercise, 1 set) to isolate issue.
 
 **For complex failures:** Read `references/api-reference.md#error-recovery`
