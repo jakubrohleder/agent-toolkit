@@ -28,6 +28,7 @@ API key location: `~/.hevy/.api_key` (plain text, no quotes)
    - Do NOT skip the "API Quirks" section
 3. Map exercises to IDs (see decision tree below)
    **Do NOT load** `exercises-by-category.md` until actively mapping names to IDs.
+   Search tip: Ctrl+F by muscle group header (e.g., `## quadriceps`).
 4. **MANDATORY: Read `references/routine-examples.md`** for JSON structure
 5. Create via `scripts/hevy-api`
 
@@ -144,11 +145,11 @@ scripts/hevy-api PUT /v1/routines/<id> .tmp-hevy/routine.json
 scripts/rename-routine.sh <id> "New Title"                 # Rename helper
 ```
 
-**JSON files:** Write to `.tmp-hevy/`, clean up after:
+**JSON files:** Write to `.tmp-hevy/`, validate, then clean up:
 ```bash
 mkdir -p .tmp-hevy
 # write JSON to .tmp-hevy/routine.json
-scripts/hevy-api POST /v1/routines .tmp-hevy/routine.json
+jq . .tmp-hevy/routine.json >/dev/null && scripts/hevy-api POST /v1/routines .tmp-hevy/routine.json
 rm -rf .tmp-hevy
 ```
 
