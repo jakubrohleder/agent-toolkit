@@ -36,6 +36,7 @@ API key location: `~/.hevy/.api_key` (plain text, no quotes)
 
 ## NEVER Do
 
+- **NEVER** call the Hevy API directly - always use `scripts/hevy-api` which handles authentication
 - **NEVER** use `@` in notes fields - causes silent Bad Request (HTML response)
 - **NEVER** forget to wrap routine: `{"routine": {...}}` not just `{...}`
 - **NEVER** include read-only fields in PUT:
