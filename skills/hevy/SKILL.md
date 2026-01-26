@@ -15,6 +15,8 @@ description: |
 
 **Before starting**: The Hevy API is fragile. Small mistakes (wrong field, `@` in notes, missing wrapper) cause silent failures. Follow this skill exactly—shortcuts cause debugging pain.
 
+**Paths**: All `scripts/` and `references/` paths are relative to THIS skill's directory (where this SKILL.md lives), NOT the user's current working directory. Use full path: `<skill-dir>/scripts/hevy-api`.
+
 ## Workflow
 
 1. Parse workout plan - extract exercises, sets, reps, weights, rest times
@@ -25,13 +27,13 @@ description: |
    **Do NOT load** `exercises-by-category.md` until actively mapping names to IDs.
    Search tip: Ctrl+F by muscle group header (e.g., `## quadriceps`).
 4. **MANDATORY: Read `references/routine-examples.md`** for JSON structure
-5. Create via `scripts/hevy-api`
+5. Create via `<skill-dir>/scripts/hevy-api`
 
 **Do NOT load** all references upfront - load as needed per step.
 
 ## NEVER Do
 
-- **NEVER** call the Hevy API directly - always use `scripts/hevy-api` which handles authentication
+- **NEVER** call the Hevy API directly - always use `<skill-dir>/scripts/hevy-api` which handles authentication
 - **NEVER** use `@` in notes fields - causes silent Bad Request (HTML response)
 - **NEVER** forget to wrap routine: `{"routine": {...}}` not just `{...}`
 - **NEVER** include read-only fields in PUT:
@@ -97,7 +99,7 @@ If all yes → create custom. Otherwise, use the existing match.
 | 1 | Search `quick-reference.md` | Use ID ✓ | Continue → |
 | 2 | Search `exercises-by-category.md` (partial match) | Use ID ✓ | Continue → |
 | 3 | Check `~/.hevy/custom-exercises.md` | Use ID ✓ | Continue → |
-| 4 | Fetch API: `scripts/hevy-api GET '/v1/exercise_templates?page=1&pageSize=100'` | Cache + Use ID ✓ | Continue → |
+| 4 | Fetch API: `<skill-dir>/scripts/hevy-api GET '/v1/exercise_templates?page=1&pageSize=100'` | Cache + Use ID ✓ | Continue → |
 | 5 | Create custom exercise | — | — |
 
 **Multiple matches at step 2?** Ask user to pick variant. If no response, use default priority: Barbell > Dumbbell > Machine > Bodyweight.
@@ -132,20 +134,20 @@ If validation fails, fix before proceeding. Do NOT attempt API call with known i
 
 ## API Access
 
-Use `scripts/hevy-api` for all API calls:
+Use the `hevy-api` script from this skill's directory (NOT `./scripts/`):
 ```bash
-scripts/hevy-api GET /v1/routines                          # List routines
-scripts/hevy-api GET /v1/routine_folders                   # List folders
-scripts/hevy-api POST /v1/routines .tmp-hevy/routine.json  # Create routine
-scripts/hevy-api PUT /v1/routines/<id> .tmp-hevy/routine.json
-scripts/rename-routine.sh <id> "New Title"                 # Rename helper
+<skill-dir>/scripts/hevy-api GET /v1/routines                          # List routines
+<skill-dir>/scripts/hevy-api GET /v1/routine_folders                   # List folders
+<skill-dir>/scripts/hevy-api POST /v1/routines .tmp-hevy/routine.json  # Create routine
+<skill-dir>/scripts/hevy-api PUT /v1/routines/<id> .tmp-hevy/routine.json
+<skill-dir>/scripts/rename-routine.sh <id> "New Title"                 # Rename helper
 ```
 
 **JSON files:** Write to `.tmp-hevy/`, validate, then clean up:
 ```bash
 mkdir -p .tmp-hevy
 # write JSON to .tmp-hevy/routine.json
-jq . .tmp-hevy/routine.json >/dev/null && scripts/hevy-api POST /v1/routines .tmp-hevy/routine.json
+jq . .tmp-hevy/routine.json >/dev/null && <skill-dir>/scripts/hevy-api POST /v1/routines .tmp-hevy/routine.json
 rm -rf .tmp-hevy
 ```
 
@@ -157,7 +159,7 @@ rm -rf .tmp-hevy
 | "field not allowed" on PUT | Read-only field included | Remove fields per NEVER list above |
 | Exercise not found | Typo or custom exercise | Search partial name, check customs, create if needed |
 | Empty response | Wrong pagination | Check `page_count`, use correct `pageSize` |
-| Folder not found | Wrong folder_id | Fetch: `scripts/hevy-api GET /v1/routine_folders` |
+| Folder not found | Wrong folder_id | Fetch: `<skill-dir>/scripts/hevy-api GET /v1/routine_folders` |
 | 401 Unauthorized | Invalid/expired API key | Check `~/.hevy/.api_key` has no quotes/whitespace |
 | 429 Rate limit | Too many requests | Wait 60s, slow down batch operations |
 | 500 Server error | Hevy API issue | Wait 30s, retry once; if persists, API is down |
