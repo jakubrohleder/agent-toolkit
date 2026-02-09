@@ -77,7 +77,7 @@ folders_create() {
   fi
 
   local body
-  body=$(jq -n --arg title "$title" '{title: $title}')
+  body=$(jq -n --arg title "$title" '{routine_folder: {title: $title}}')
 
   debug "Creating folder: $title"
   local response
