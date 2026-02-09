@@ -54,5 +54,5 @@ The skill includes a full CLI for direct interaction:
 - `bin/hevy` - CLI tool
 - `lib/` - Shared bash libraries
 - `commands/` - CLI subcommands
-- `references/` - Exercise IDs, JSON examples, API docs
 - `templates/` - JSON templates
+- `tests/` - BATS test suite
