@@ -1,0 +1,163 @@
+#!/bin/bash
+# Hevy CLI - Main dispatcher
+# Usage: hevy <command> [options] [args]
+
+set -e
+
+# ============================================================================
+# Initialization
+# ============================================================================
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Source library files
+source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/api.sh"
+source "$SCRIPT_DIR/lib/pagination.sh"
+source "$SCRIPT_DIR/lib/date-parser.sh"
+source "$SCRIPT_DIR/lib/cache.sh"
+
+# Check dependencies
+check_dependencies
+
+# ============================================================================
+# Global flags
+# ============================================================================
+
+HEVY_JSON="${HEVY_JSON:-false}"
+HEVY_VERBOSE="${HEVY_VERBOSE:-false}"
+HEVY_QUIET="${HEVY_QUIET:-false}"
+HEVY_YES="${HEVY_YES:-false}"
+
+# ============================================================================
+# Help text
+# ============================================================================
+
+show_help() {
+  cat <<'EOF'
+hevy - Hevy workout app CLI
+
+Usage: hevy <command> [options] [args]
+
+Commands:
+  auth [key]           Check auth status or save API key
+  exercises            Search and manage exercises
+  folders              Manage routine folders
+  routines             Manage workout routines
+  workouts             View workout history
+  cache                Manage exercise cache
+
+Global options:
+  --json               Output raw JSON
+  --verbose, -v        Verbose output with debug info
+  --quiet, -q          Suppress info messages
+  --yes, -y            Skip confirmation prompts
+  --help, -h           Show this help
+
+Examples:
+  hevy auth <api-key>              Save API key
+  hevy exercises search squat      Search exercises
+  hevy routines list               List all routines
+  hevy workouts list --from today  Today's workouts
+
+Run 'hevy <command> --help' for command-specific help.
+EOF
+}
+
+show_version() {
+  echo "hevy 1.0.0"
+}
+
+# ============================================================================
+# Parse global flags
+# ============================================================================
+
+COMMAND=""
+COMMAND_ARGS=()
+
+# Parse arguments - stop processing global flags once we hit a command
+while [[ $# -gt 0 ]]; do
+  # If we already have a command, everything else goes to command args
+  if [[ -n "$COMMAND" ]]; then
+    COMMAND_ARGS+=("$1")
+    shift
+    continue
+  fi
+
+  case "$1" in
+    --json)
+      HEVY_JSON=true
+      shift
+      ;;
+    --verbose|-v)
+      HEVY_VERBOSE=true
+      shift
+      ;;
+    --quiet|-q)
+      HEVY_QUIET=true
+      shift
+      ;;
+    --yes|-y)
+      HEVY_YES=true
+      shift
+      ;;
+    --help|-h)
+      show_help
+      exit 0
+      ;;
+    --version)
+      show_version
+      exit 0
+      ;;
+    -*)
+      # Unknown flag before command - pass through
+      COMMAND_ARGS+=("$1")
+      shift
+      ;;
+    *)
+      COMMAND="$1"
+      shift
+      ;;
+  esac
+done
+
+# Export flags for subcommands
+export HEVY_JSON HEVY_VERBOSE HEVY_QUIET HEVY_YES
+
+# ============================================================================
+# Command routing
+# ============================================================================
+
+if [[ -z "$COMMAND" ]]; then
+  show_help
+  exit 0
+fi
+
+# Map command aliases
+case "$COMMAND" in
+  exercise)
+    COMMAND="exercises"
+    ;;
+  folder)
+    COMMAND="folders"
+    ;;
+  routine)
+    COMMAND="routines"
+    ;;
+  workout)
+    COMMAND="workouts"
+    ;;
+esac
+
+# Check if command file exists
+COMMAND_FILE="$SCRIPT_DIR/commands/${COMMAND}.sh"
+if [[ ! -f "$COMMAND_FILE" ]]; then
+  die "Unknown command: $COMMAND. Run 'hevy --help' for available commands."
+fi
+
+# Source and run command
+source "$COMMAND_FILE"
+
+# Call the command's main function with remaining args
+cmd_main "${COMMAND_ARGS[@]}"

@@ -1,0 +1,26 @@
+{
+  "routine": {
+    "title": "My Routine",
+    "folder_id": null,
+    "exercises": [
+      {
+        "exercise_template_id": "D04AC939",
+        "superset_id": null,
+        "rest_seconds": 120,
+        "notes": "",
+        "sets": [
+          {
+            "type": "warmup",
+            "weight_kg": 60,
+            "reps": 10
+          },
+          {
+            "type": "normal",
+            "weight_kg": 100,
+            "reps": 5
+          }
+        ]
+      }
+    ]
+  }
+}

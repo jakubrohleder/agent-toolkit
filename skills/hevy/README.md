@@ -29,15 +29,30 @@ Then describe what you want: paste a training plan, share a PDF, or just describ
 ## Setup
 
 1. Get your API key from [Hevy Developer Settings](https://hevy.com/settings?developer)
-2. Save it to `~/.hevy/.api_key`
+2. Run: `<skill-dir>/bin/hevy auth <your-api-key>`
 
+Or manually:
 ```bash
 mkdir -p ~/.hevy
 echo "your-api-key-here" > ~/.hevy/.api_key
 ```
 
+## CLI
+
+The skill includes a full CLI for direct interaction:
+
+```bash
+<skill-dir>/bin/hevy --help              # Show all commands
+<skill-dir>/bin/hevy exercises search squat
+<skill-dir>/bin/hevy routines list
+<skill-dir>/bin/hevy workouts list --from "last week"
+```
+
 ## Files
 
 - `SKILL.md` - Skill instructions and API quirks
+- `bin/hevy` - CLI tool
+- `lib/` - Shared bash libraries
+- `commands/` - CLI subcommands
 - `references/` - Exercise IDs, JSON examples, API docs
-- `scripts/` - API wrapper scripts
+- `templates/` - JSON templates
