@@ -103,6 +103,99 @@ EOF
 }
 
 # ============================================================================
+# Routine Update Tests
+# ============================================================================
+
+@test "hevy routines update updates a routine" {
+  # Create a routine first
+  local test_name
+  test_name=$(test_resource_name)
+
+  local routine_file="$BATS_TEST_TMPDIR/update_create.json"
+  create_test_routine_json "$test_name" > "$routine_file"
+
+  run_hevy routines create "$routine_file"
+  assert_success
+
+  local routine_id
+  routine_id=$(extract_id_from_output "$output")
+  [[ -n "$routine_id" ]]
+
+  # Build an updated routine JSON with a new title and extra set
+  local updated_name="Updated_${test_name}"
+  local update_file="$BATS_TEST_TMPDIR/update_routine.json"
+  cat > "$update_file" <<EOF
+{
+  "routine": {
+    "title": "$updated_name",
+    "folder_id": null,
+    "exercises": [
+      {
+        "exercise_template_id": "D04AC939",
+        "superset_id": null,
+        "rest_seconds": 120,
+        "notes": "",
+        "sets": [
+          {
+            "type": "normal",
+            "weight_kg": 100,
+            "reps": 5
+          },
+          {
+            "type": "normal",
+            "weight_kg": 110,
+            "reps": 3
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+
+  run_hevy routines update "$routine_id" "$update_file"
+  assert_success
+  assert_output_contains "Updated routine:"
+  assert_output_contains "$updated_name"
+}
+
+@test "hevy routines update with --json returns JSON response" {
+  # Create a routine first
+  local test_name
+  test_name=$(test_resource_name)
+
+  local routine_file="$BATS_TEST_TMPDIR/update_json_create.json"
+  create_test_routine_json "$test_name" > "$routine_file"
+
+  run_hevy routines create "$routine_file"
+  assert_success
+
+  local routine_id
+  routine_id=$(extract_id_from_output "$output")
+  [[ -n "$routine_id" ]]
+
+  # Update with --json flag
+  local update_file="$BATS_TEST_TMPDIR/update_json.json"
+  create_test_routine_json "JSONUpdate_${test_name}" > "$update_file"
+
+  run_hevy --json routines update "$routine_id" "$update_file"
+  assert_success
+  assert_valid_json
+}
+
+@test "hevy routines update fails with missing args" {
+  run_hevy routines update
+  assert_failure
+  assert_output_contains "Usage:"
+}
+
+@test "hevy routines update fails with missing file" {
+  run_hevy routines update "fake-id" "/nonexistent/file.json"
+  assert_failure
+  assert_output_contains "File not found"
+}
+
+# ============================================================================
 # Routine Rename Tests
 # ============================================================================
 

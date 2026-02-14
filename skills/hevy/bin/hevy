@@ -76,7 +76,8 @@ show_version() {
 COMMAND=""
 COMMAND_ARGS=()
 
-# Parse arguments - extract global flags from any position
+# Parse arguments - extract global flags from any position,
+# but pass --help/--version through to subcommands
 REMAINING=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -91,14 +92,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --yes|-y)
       HEVY_YES=true
-      ;;
-    --help|-h)
-      show_help
-      exit 0
-      ;;
-    --version)
-      show_version
-      exit 0
       ;;
     *)
       REMAINING+=("$1")
@@ -115,6 +108,22 @@ for arg in "${REMAINING[@]}"; do
     COMMAND_ARGS+=("$arg")
   fi
 done
+
+# Handle --help/--version when no command is specified
+if [[ -z "$COMMAND" ]]; then
+  for arg in "${COMMAND_ARGS[@]}"; do
+    case "$arg" in
+      --help|-h)
+        show_help
+        exit 0
+        ;;
+      --version)
+        show_version
+        exit 0
+        ;;
+    esac
+  done
+fi
 
 # Export flags for subcommands
 export HEVY_JSON HEVY_VERBOSE HEVY_QUIET HEVY_YES

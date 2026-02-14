@@ -217,7 +217,11 @@ strip_readonly_fields() {
   echo "$json" | jq '
     .routine |= (
       del(.id, .folder_id, .created_at, .updated_at) |
-      .exercises = [.exercises[] | del(.index, .title) | .sets = [.sets[] | del(.index)]]
+      .exercises = [.exercises[] |
+        del(.index, .title) |
+        if .notes == "" or .notes == null then del(.notes) else . end |
+        .sets = [.sets[] | del(.index)]
+      ]
     )
   '
 }

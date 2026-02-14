@@ -264,6 +264,11 @@ routines_create() {
   if [[ $total -gt 1 ]]; then
     info "Bulk create: $created succeeded, $failed failed (of $total)"
   fi
+
+  # Exit with error if all files failed
+  if [[ $created -eq 0 ]]; then
+    return 1
+  fi
 }
 
 # Update routine from JSON file
