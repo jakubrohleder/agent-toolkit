@@ -437,14 +437,6 @@ cache_routine_upsert() {
   fi
 }
 
-# Delete routine from cache
-# Usage: cache_routine_delete "routine-id"
-cache_routine_delete() {
-  local id="$1"
-  ensure_cache_tables
-  sqlite3 "$HEVY_CACHE_DB" "DELETE FROM routines WHERE id='$id'"
-}
-
 # List all cached routines
 # Usage: cache_routines_list [folder_id]
 cache_routines_list() {

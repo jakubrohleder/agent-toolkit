@@ -11,16 +11,15 @@ Usage: hevy folders <command> [options]
 Commands:
   list                 List all folders
   create <title>       Create a new folder
-  delete <id>          Delete a folder (requires confirmation)
 
 Options:
   --help, -h           Show this help
-  --yes, -y            Skip confirmation for delete
 
 Examples:
   hevy folders list
   hevy folders create "My Programs"
-  hevy folders delete 12345
+
+Note: Deleting folders is not supported via the API. Delete folders manually in the Hevy app.
 EOF
 }
 
@@ -37,9 +36,6 @@ cmd_main() {
       ;;
     create|new|add)
       folders_create "$@"
-      ;;
-    delete|rm|remove)
-      folders_delete "$@"
       ;;
     *)
       die "Unknown folders command: $subcommand. Run 'hevy folders --help'"
@@ -93,22 +89,3 @@ folders_create() {
   fi
 }
 
-# Delete a folder
-folders_delete() {
-  local id="$1"
-
-  if [[ -z "$id" ]]; then
-    die "Usage: hevy folders delete <id>"
-  fi
-
-  # Confirm deletion
-  if ! confirm "Delete folder $id?"; then
-    info "Cancelled"
-    return 0
-  fi
-
-  debug "Deleting folder: $id"
-  api_delete "/v1/routine_folders/$id" || exit 1
-
-  success "Deleted folder: $id"
-}

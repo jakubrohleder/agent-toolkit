@@ -11,18 +11,18 @@ Usage: hevy routines <command> [options]
 Commands:
   list                     List all routines
   get <id>                 Get routine details
-  create <json>            Create routine from JSON file
+  create <json>            Create routine from JSON file(s)
+  update <id> <json>       Update routine from JSON file
   rename <id> <title>      Rename a routine
   move <id> --folder <id>  Move routine to folder
-  delete <id>              Delete a routine (requires confirmation)
   duplicate <id>           Duplicate a routine
   template                 Output minimal JSON template
 
 Options:
   --folder <id>            Filter by folder (for list) or target folder (for create/move)
   --title <title>          New title (for duplicate)
+  --dir <path>             Create from all JSON files in directory
   --help, -h               Show this help
-  --yes, -y                Skip confirmation for delete
 
 Examples:
   hevy routines list
@@ -31,9 +31,12 @@ Examples:
   hevy routines template > my-routine.json
   hevy routines create my-routine.json
   hevy routines create my-routine.json --folder 12345
+  hevy routines create --dir /tmp/routines/
+  hevy routines update abc-123 updated-routine.json
   hevy routines rename abc-123 "New Title"
   hevy routines duplicate abc-123 --title "Copy of Routine"
-  hevy routines delete abc-123
+
+Note: Deleting routines is not supported via the API. Delete routines manually in the Hevy app.
 EOF
 }
 
@@ -54,14 +57,14 @@ cmd_main() {
     create|new|add)
       routines_create "$@"
       ;;
+    update|edit)
+      routines_update "$@"
+      ;;
     rename)
       routines_rename "$@"
       ;;
     move)
       routines_move "$@"
-      ;;
-    delete|rm|remove)
-      routines_delete "$@"
       ;;
     duplicate|dup|copy)
       routines_duplicate "$@"
@@ -162,10 +165,11 @@ routines_get() {
   fi
 }
 
-# Create routine from JSON file
+# Create routine(s) from JSON file(s)
 routines_create() {
-  local file=""
+  local files=()
   local folder_id=""
+  local dir=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -173,20 +177,102 @@ routines_create() {
         folder_id="$2"
         shift 2
         ;;
+      --dir|-d)
+        dir="$2"
+        shift 2
+        ;;
       -*)
         shift
         ;;
       *)
-        if [[ -z "$file" ]]; then
-          file="$1"
-        fi
+        files+=("$1")
         shift
         ;;
     esac
   done
 
-  if [[ -z "$file" ]]; then
-    die "Usage: hevy routines create <json-file> [--folder <id>]"
+  # Collect files from --dir
+  if [[ -n "$dir" ]]; then
+    if [[ ! -d "$dir" ]]; then
+      die "Directory not found: $dir"
+    fi
+    while IFS= read -r -d '' f; do
+      files+=("$f")
+    done < <(find "$dir" -maxdepth 1 -name '*.json' -print0 | sort -z)
+  fi
+
+  if [[ ${#files[@]} -eq 0 ]]; then
+    die "Usage: hevy routines create <json-file>... [--folder <id>] [--dir <path>]"
+  fi
+
+  local total=${#files[@]}
+  local created=0
+  local failed=0
+
+  for file in "${files[@]}"; do
+    if [[ ! -f "$file" ]]; then
+      warn "File not found: $file"
+      ((failed++))
+      continue
+    fi
+
+    # Validate JSON
+    if ! validate_routine_json "$file"; then
+      ((failed++))
+      continue
+    fi
+
+    local json
+    json=$(cat "$file")
+
+    # Inject folder_id if provided
+    if [[ -n "$folder_id" ]]; then
+      json=$(echo "$json" | jq --arg fid "$folder_id" '.routine.folder_id = ($fid | tonumber)')
+    fi
+
+    # Rate limit delay between API calls for bulk creates
+    if [[ $created -gt 0 ]]; then
+      debug "Waiting 2s between API calls..."
+      sleep 2
+    fi
+
+    debug "Creating routine from $file ($((created + failed + 1))/$total)"
+    local response
+    if ! response=$(api_post "/v1/routines" "$json"); then
+      warn "Failed to create routine from $file"
+      ((failed++))
+      continue
+    fi
+
+    # Update cache with new routine
+    local routine
+    routine=$(echo "$response" | jq 'if .routine | type == "array" then .routine[0] else .routine end')
+    cache_routine_upsert "$routine"
+
+    if [[ "$HEVY_JSON" == "true" ]]; then
+      echo "$response" | jq .
+    else
+      local id title
+      id=$(echo "$routine" | jq -r '.id // "unknown"')
+      title=$(echo "$routine" | jq -r '.title // "unknown"')
+      success "Created routine: $title (ID: $id)"
+    fi
+
+    ((created++))
+  done
+
+  if [[ $total -gt 1 ]]; then
+    info "Bulk create: $created succeeded, $failed failed (of $total)"
+  fi
+}
+
+# Update routine from JSON file
+routines_update() {
+  local id="$1"
+  local file="$2"
+
+  if [[ -z "$id" || -z "$file" ]]; then
+    die "Usage: hevy routines update <id> <json-file>"
   fi
 
   if [[ ! -f "$file" ]]; then
@@ -199,16 +285,14 @@ routines_create() {
   local json
   json=$(cat "$file")
 
-  # Inject folder_id if provided
-  if [[ -n "$folder_id" ]]; then
-    json=$(echo "$json" | jq --arg fid "$folder_id" '.routine.folder_id = ($fid | tonumber)')
-  fi
+  # Strip read-only fields
+  json=$(strip_readonly_fields "$json")
 
-  debug "Creating routine from $file"
+  debug "Updating routine $id from $file"
   local response
-  response=$(api_post "/v1/routines" "$json") || exit 1
+  response=$(api_put "/v1/routines/$id" "$json") || exit 1
 
-  # Update cache with new routine
+  # Update cache
   local routine
   routine=$(echo "$response" | jq 'if .routine | type == "array" then .routine[0] else .routine end')
   cache_routine_upsert "$routine"
@@ -216,10 +300,9 @@ routines_create() {
   if [[ "$HEVY_JSON" == "true" ]]; then
     echo "$response" | jq .
   else
-    local id title
-    id=$(echo "$routine" | jq -r '.id // "unknown"')
+    local title
     title=$(echo "$routine" | jq -r '.title // "unknown"')
-    success "Created routine: $title (ID: $id)"
+    success "Updated routine: $title (ID: $id)"
   fi
 }
 
@@ -295,36 +378,7 @@ routines_move() {
   # We'll need to create a new routine in the target folder and delete the old one
 
   warn "Note: Hevy API doesn't support moving routines directly."
-  info "To move a routine, use: hevy routines duplicate <id> --folder <target-folder>, then delete the original."
-}
-
-# Delete a routine
-routines_delete() {
-  local id="$1"
-
-  if [[ -z "$id" ]]; then
-    die "Usage: hevy routines delete <id>"
-  fi
-
-  # Get routine details for confirmation
-  local response
-  response=$(api_get "/v1/routines/$id") || exit 1
-  local title
-  title=$(echo "$response" | jq -r 'if .routine | type == "array" then .routine[0].title else .routine.title end // "unknown"')
-
-  # Confirm deletion
-  if ! confirm "Delete routine '$title' ($id)?"; then
-    info "Cancelled"
-    return 0
-  fi
-
-  debug "Deleting routine: $id"
-  api_delete "/v1/routines/$id" || exit 1
-
-  # Remove from cache
-  cache_routine_delete "$id"
-
-  success "Deleted routine: $title"
+  info "To move a routine, duplicate it to the target folder, then delete the original manually in the Hevy app."
 }
 
 # Duplicate a routine
@@ -439,6 +493,7 @@ EOF
   echo "      reps_only: reps (no weight!)" >&2
   echo "      duration: duration_seconds" >&2
   echo "      distance_duration: distance_meters, duration_seconds" >&2
+  echo "      short_distance_weight: distance_meters, weight_kg (e.g. Farmers Walk, Sled Push)" >&2
   echo "  - superset_id: null for sequential, same integer for grouped exercises" >&2
   echo "  - reps: null for max effort / AMRAP sets" >&2
 }

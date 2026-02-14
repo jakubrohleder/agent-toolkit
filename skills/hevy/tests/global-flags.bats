@@ -113,7 +113,6 @@ teardown() {
 
 @test "--yes flag is accepted" {
   # Test that --yes flag is recognized (used for confirmation prompts)
-  # Note: Delete operations are not supported by public API
   run_hevy --yes --help
 
   assert_success

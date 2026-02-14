@@ -60,6 +60,8 @@ track_resource() {
 }
 
 # Cleanup all tracked resources
+# Note: Delete operations are not supported by the Hevy API.
+# Test resources must be cleaned up manually in the Hevy app.
 cleanup_resources() {
   if [[ ! -f "$HEVY_TEST_RESOURCES" ]]; then
     return 0
@@ -67,14 +69,7 @@ cleanup_resources() {
 
   local line type id
   while IFS=: read -r type id; do
-    case "$type" in
-      routine)
-        "$HEVY_BIN" --yes routines delete "$id" 2>/dev/null || true
-        ;;
-      folder)
-        "$HEVY_BIN" --yes folders delete "$id" 2>/dev/null || true
-        ;;
-    esac
+    echo "Test resource to clean up manually: $type $id" >&2
   done < "$HEVY_TEST_RESOURCES"
 
   rm -f "$HEVY_TEST_RESOURCES"

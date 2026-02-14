@@ -44,6 +44,7 @@ For all commands: `<skill-dir>/bin/hevy --help`
   - `reps_only` → reps only (NO weight!)
   - `duration` → duration_seconds
   - `distance_duration` → distance_meters, duration_seconds
+  - `short_distance_weight` → distance_meters, weight_kg (Farmers Walk, Sled Push/Pull)
 - **NEVER** guess IDs - always `hevy exercises search`
 
 ## Exercise Type Decision
@@ -54,6 +55,7 @@ For all commands: `<skill-dir>/bin/hevy --help`
 | Just reps ("3x12 pull-ups") | `reps_only` | reps only |
 | Time hold ("60s plank") | `duration` | duration_seconds |
 | Distance + time ("500m row") | `distance_duration` | distance_meters, duration_seconds |
+| Distance + weight ("50m farmers walk @ 80kg") | `short_distance_weight` | distance_meters, weight_kg |
 
 **When unsure**: `hevy exercises get <id>` shows the exercise type.
 
@@ -98,6 +100,7 @@ Use `hevy exercises search` for current IDs. These are reference examples:
 | Push Up | `392887AA` | reps_only |
 | Rowing Machine | `0222DB42` | distance_duration |
 | Stretching | `527DA061` | duration |
+| Farmers Walk | `49742539` | short_distance_weight |
 
 ## Before Creating Custom Exercises
 

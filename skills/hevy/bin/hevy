@@ -76,31 +76,21 @@ show_version() {
 COMMAND=""
 COMMAND_ARGS=()
 
-# Parse arguments - stop processing global flags once we hit a command
+# Parse arguments - extract global flags from any position
+REMAINING=()
 while [[ $# -gt 0 ]]; do
-  # If we already have a command, everything else goes to command args
-  if [[ -n "$COMMAND" ]]; then
-    COMMAND_ARGS+=("$1")
-    shift
-    continue
-  fi
-
   case "$1" in
     --json)
       HEVY_JSON=true
-      shift
       ;;
     --verbose|-v)
       HEVY_VERBOSE=true
-      shift
       ;;
     --quiet|-q)
       HEVY_QUIET=true
-      shift
       ;;
     --yes|-y)
       HEVY_YES=true
-      shift
       ;;
     --help|-h)
       show_help
@@ -110,16 +100,20 @@ while [[ $# -gt 0 ]]; do
       show_version
       exit 0
       ;;
-    -*)
-      # Unknown flag before command - pass through
-      COMMAND_ARGS+=("$1")
-      shift
-      ;;
     *)
-      COMMAND="$1"
-      shift
+      REMAINING+=("$1")
       ;;
   esac
+  shift
+done
+
+# Split remaining args into command + command args
+for arg in "${REMAINING[@]}"; do
+  if [[ -z "$COMMAND" && "$arg" != -* ]]; then
+    COMMAND="$arg"
+  else
+    COMMAND_ARGS+=("$arg")
+  fi
 done
 
 # Export flags for subcommands

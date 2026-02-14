@@ -193,17 +193,19 @@ validate_routine_json() {
   fi
 
   # Warn about superset rest placement
-  local superset_rest_issue
-  superset_rest_issue=$(echo "$json" | jq -e '
-    .routine.exercises |
-    group_by(.superset_id) |
-    .[] | select(.[0].superset_id != null) |
-    .[:-1][] | select((.rest_seconds // 0) > 0) |
-    .exercise_template_id
+  local superset_rest_issues
+  superset_rest_issues=$(echo "$json" | jq -r '
+    [.routine.exercises | to_entries | group_by(.value.superset_id) |
+    .[] | select(.[0].value.superset_id != null) |
+    .[:-1][] | select((.value.rest_seconds // 0) > 0) |
+    "exercise #\(.key + 1) (\(.value.exercise_template_id)) in superset \(.value.superset_id): set rest_seconds to 0 (only last exercise in superset should have rest)"] |
+    .[]
   ' 2>/dev/null || true)
 
-  if [[ -n "$superset_rest_issue" ]]; then
-    warn "Superset has rest on non-final exercise - only last should have rest"
+  if [[ -n "$superset_rest_issues" ]]; then
+    while IFS= read -r line; do
+      warn "$line"
+    done <<< "$superset_rest_issues"
   fi
 
   return 0
