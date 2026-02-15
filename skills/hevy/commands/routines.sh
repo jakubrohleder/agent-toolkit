@@ -95,12 +95,7 @@ routines_list() {
   done
 
   local routines
-  routines=$(paginate_all "/v1/routines" "routines") || exit 1
-
-  # Filter by folder if specified
-  if [[ -n "$folder_id" ]]; then
-    routines=$(echo "$routines" | jq --arg fid "$folder_id" '[.[] | select(.folder_id == ($fid | tonumber))]')
-  fi
+  routines=$(cache_routines_list "$folder_id")
 
   local count
   count=$(echo "$routines" | jq 'length')
@@ -118,7 +113,7 @@ routines_list() {
       .id,
       .title,
       (.folder_id // "none"),
-      (.exercises | length),
+      (.exercise_count // (.exercises | length)),
       (.updated_at | split("T")[0])
     ] | @tsv' | table
   fi
@@ -138,6 +133,9 @@ routines_get() {
   # API returns {"routine": {...}} object for single item
   local routine
   routine=$(echo "$response" | jq 'if .routine | type == "array" then .routine[0] else .routine end')
+
+  # Cache the fetched routine (handles routines added via app)
+  cache_routine_upsert "$routine"
 
   if [[ "$HEVY_JSON" == "true" ]]; then
     echo "$routine" | jq .

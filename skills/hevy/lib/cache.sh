@@ -375,7 +375,10 @@ cache_routine_get() {
     debug "Routine $id not in cache, trying API..."
     local response
     response=$(api_get "/v1/routines/$id") || return 1
-    echo "$response" | jq '.routine // .'
+    local routine
+    routine=$(echo "$response" | jq 'if .routine | type == "array" then .routine[0] else .routine end')
+    cache_routine_upsert "$routine"
+    echo "$routine"
   else
     echo "$result" | jq '.[0]'
   fi
@@ -495,6 +498,18 @@ cache_get() {
     if [[ -z "$exercise" ]]; then
       return 1
     fi
+
+    # Cache the fetched exercise
+    local ex_title ex_type ex_muscle ex_secondary ex_equipment ex_custom
+    ex_title=$(echo "$exercise" | jq -r '.title')
+    ex_type=$(echo "$exercise" | jq -r '.type')
+    ex_muscle=$(echo "$exercise" | jq -r '.primary_muscle_group // ""')
+    ex_secondary=$(echo "$exercise" | jq -r '.secondary_muscle_groups // [] | join(",")')
+    ex_equipment=$(echo "$exercise" | jq -r '.equipment // ""')
+    ex_custom=$(echo "$exercise" | jq -r 'if .is_custom then 1 else 0 end')
+    ex_title="${ex_title//\'/\'\'}"
+    sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO exercises (id, title, type, primary_muscle_group, secondary_muscle_groups, equipment, is_custom) VALUES ('$id', '$ex_title', '$ex_type', '$ex_muscle', '$ex_secondary', '$ex_equipment', $ex_custom)"
+
     echo "$exercise"
   else
     echo "$result" | jq '.[0]'

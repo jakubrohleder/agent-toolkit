@@ -163,6 +163,9 @@ workouts_get() {
   local workout
   workout=$(echo "$response" | jq '.workout // .')
 
+  # Cache the fetched workout (handles workouts added via app)
+  cache_workouts_upsert "[$workout]"
+
   if [[ "$HEVY_JSON" == "true" ]]; then
     echo "$workout" | jq .
   else
