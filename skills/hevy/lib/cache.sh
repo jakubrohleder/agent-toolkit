@@ -88,63 +88,36 @@ CREATE INDEX IF NOT EXISTS idx_workouts_start ON workouts(start_time);
 SQL
 }
 
-# Check if exercise cache needs refresh (older than 24 hours)
+# Check if exercise cache is empty (never populated)
+# Cache never expires — use 'hevy cache refresh' to update manually
 cache_needs_refresh() {
   ensure_cache_db
 
   local last_refresh
   last_refresh=$(sqlite3 "$HEVY_CACHE_DB" "SELECT value FROM cache_meta WHERE key='exercises_last_refresh'" 2>/dev/null)
-  # Fallback to old key for backwards compatibility
   [[ -z "$last_refresh" ]] && last_refresh=$(sqlite3 "$HEVY_CACHE_DB" "SELECT value FROM cache_meta WHERE key='last_refresh'" 2>/dev/null)
 
-  if [[ -z "$last_refresh" ]]; then
-    return 0  # Never refreshed
-  fi
-
-  local now
-  now=$(date +%s)
-  local age=$((now - last_refresh))
-  local max_age=$((24 * 60 * 60))  # 24 hours
-
-  [[ $age -gt $max_age ]]
+  [[ -z "$last_refresh" ]]
 }
 
-# Check if workout cache needs refresh (older than 1 hour)
+# Check if workout cache is empty (never populated)
 cache_workouts_needs_refresh() {
   ensure_cache_tables
 
   local last_refresh
   last_refresh=$(sqlite3 "$HEVY_CACHE_DB" "SELECT value FROM cache_meta WHERE key='workouts_last_refresh'" 2>/dev/null)
 
-  if [[ -z "$last_refresh" ]]; then
-    return 0  # Never refreshed
-  fi
-
-  local now
-  now=$(date +%s)
-  local age=$((now - last_refresh))
-  local max_age=$((1 * 60 * 60))  # 1 hour
-
-  [[ $age -gt $max_age ]]
+  [[ -z "$last_refresh" ]]
 }
 
-# Check if routine cache needs refresh (older than 1 hour)
+# Check if routine cache is empty (never populated)
 cache_routines_needs_refresh() {
   ensure_cache_tables
 
   local last_refresh
   last_refresh=$(sqlite3 "$HEVY_CACHE_DB" "SELECT value FROM cache_meta WHERE key='routines_last_refresh'" 2>/dev/null)
 
-  if [[ -z "$last_refresh" ]]; then
-    return 0  # Never refreshed
-  fi
-
-  local now
-  now=$(date +%s)
-  local age=$((now - last_refresh))
-  local max_age=$((1 * 60 * 60))  # 1 hour
-
-  [[ $age -gt $max_age ]]
+  [[ -z "$last_refresh" ]]
 }
 
 # Refresh cache from API
@@ -635,18 +608,16 @@ cache_stats() {
   echo "Exercises:"
   echo "  Total: $ex_total ($ex_custom custom)"
   echo "  Last refresh: $(_format_timestamp "$ex_refresh")"
-  echo "  TTL: 24 hours"
   echo ""
   echo "Workouts:"
   echo "  Total: $wo_total"
   echo "  Last refresh: $(_format_timestamp "$wo_refresh")"
-  echo "  TTL: 1 hour"
   echo ""
   echo "Routines:"
   echo "  Total: $rt_total"
   echo "  Last refresh: $(_format_timestamp "$rt_refresh")"
-  echo "  TTL: 1 hour"
   echo ""
+  echo "Cache never expires. Use 'hevy cache refresh' to update."
   echo "Cache location: $HEVY_CACHE_DB"
 }
 
