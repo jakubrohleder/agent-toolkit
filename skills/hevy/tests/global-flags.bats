@@ -27,15 +27,16 @@ teardown() {
 }
 
 @test "--json works with different commands" {
-  run_hevy --quiet --json routines list
+  # Redirect stderr to avoid cache refresh messages breaking JSON validation
+  run bash -c '"$1" --quiet --json routines list 2>/dev/null' _ "$HEVY_BIN"
   assert_success
   assert_valid_json
 
-  run_hevy --quiet --json workouts list --last 1
+  run bash -c '"$1" --quiet --json workouts list --last 1 2>/dev/null' _ "$HEVY_BIN"
   assert_success
   assert_valid_json
 
-  run_hevy --quiet --json folders list
+  run bash -c '"$1" --quiet --json folders list 2>/dev/null' _ "$HEVY_BIN"
   assert_success
   assert_valid_json
 }
