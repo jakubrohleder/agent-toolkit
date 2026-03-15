@@ -135,32 +135,32 @@ cache_refresh() {
   count=$(echo "$exercises" | jq 'length')
   debug "Fetched $count exercises"
 
-  # Clear existing exercises
-  sqlite3 "$HEVY_CACHE_DB" "DELETE FROM exercises"
-
-  # Insert all exercises
-  echo "$exercises" | jq -c '.[]' | while read -r ex; do
-    local id title type muscle equipment is_custom secondary_muscles
-    id=$(echo "$ex" | jq -r '.id')
-    title=$(echo "$ex" | jq -r '.title')
-    type=$(echo "$ex" | jq -r '.type')
-    muscle=$(echo "$ex" | jq -r '.primary_muscle_group // ""')
-    secondary_muscles=$(echo "$ex" | jq -r '.secondary_muscle_groups // [] | join(",")')
-    equipment=$(echo "$ex" | jq -r '.equipment // ""')
-    is_custom=$(echo "$ex" | jq -r 'if .is_custom then 1 else 0 end')
-
-    # Escape single quotes for SQL
-    title="${title//\'/\'\'}"
-
-    sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO exercises (id, title, type, primary_muscle_group, secondary_muscle_groups, equipment, is_custom) VALUES ('$id', '$title', '$type', '$muscle', '$secondary_muscles', '$equipment', $is_custom)"
-  done
-
-  # Update refresh timestamp
+  # Build SQL batch: clear + insert all exercises in a single transaction
   local now
   now=$(date +%s)
-  sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO cache_meta (key, value) VALUES ('exercises_last_refresh', '$now')"
-  # Keep old key for backwards compatibility
-  sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO cache_meta (key, value) VALUES ('last_refresh', '$now')"
+
+  local sql
+  sql=$(echo "$exercises" | jq -r --arg now "$now" '
+    ["BEGIN TRANSACTION;",
+     "DELETE FROM exercises;"] +
+    [.[] |
+      "INSERT OR REPLACE INTO exercises (id, title, type, primary_muscle_group, secondary_muscle_groups, equipment, is_custom) VALUES (" +
+      (.id | @json) + ", " +
+      (.title | @json) + ", " +
+      (.type | @json) + ", " +
+      ((.primary_muscle_group // "") | @json) + ", " +
+      ((.secondary_muscle_groups // [] | join(",")) | @json) + ", " +
+      ((.equipment // "") | @json) + ", " +
+      (if .is_custom then "1" else "0" end) +
+      ");"
+    ] +
+    ["INSERT OR REPLACE INTO cache_meta (key, value) VALUES (\u0027exercises_last_refresh\u0027, \u0027" + $now + "\u0027);",
+     "INSERT OR REPLACE INTO cache_meta (key, value) VALUES (\u0027last_refresh\u0027, \u0027" + $now + "\u0027);",
+     "COMMIT;"] |
+    .[]
+  ')
+
+  echo "$sql" | sqlite3 "$HEVY_CACHE_DB"
 
   success "Cached $count exercises"
 }
@@ -184,31 +184,31 @@ cache_workouts_refresh() {
   count=$(echo "$workouts" | jq 'length')
   debug "Fetched $count workouts"
 
-  # Clear existing workouts
-  sqlite3 "$HEVY_CACHE_DB" "DELETE FROM workouts"
-
-  # Insert all workouts
-  echo "$workouts" | jq -c '.[]' | while read -r w; do
-    local id title routine_id start_time end_time exercise_count
-    id=$(echo "$w" | jq -r '.id')
-    title=$(echo "$w" | jq -r '.title')
-    routine_id=$(echo "$w" | jq -r '.routine_id // ""')
-    start_time=$(echo "$w" | jq -r '.start_time')
-    end_time=$(echo "$w" | jq -r '.end_time // ""')
-    exercise_count=$(echo "$w" | jq -r '.exercises | length')
-
-    # Escape single quotes for SQL
-    title="${title//\'/\'\'}"
-
-    local now
-    now=$(date +%s)
-    sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO workouts (id, title, routine_id, start_time, end_time, exercise_count, cached_at) VALUES ('$id', '$title', '$routine_id', '$start_time', '$end_time', $exercise_count, $now)"
-  done
-
-  # Update refresh timestamp
+  # Build SQL batch: clear + insert all workouts in a single transaction
   local now
   now=$(date +%s)
-  sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO cache_meta (key, value) VALUES ('workouts_last_refresh', '$now')"
+
+  local sql
+  sql=$(echo "$workouts" | jq -r --arg now "$now" '
+    ["BEGIN TRANSACTION;",
+     "DELETE FROM workouts;"] +
+    [.[] |
+      "INSERT OR REPLACE INTO workouts (id, title, routine_id, start_time, end_time, exercise_count, cached_at) VALUES (" +
+      (.id | @json) + ", " +
+      (.title | @json) + ", " +
+      ((.routine_id // "") | @json) + ", " +
+      (.start_time | @json) + ", " +
+      ((.end_time // "") | @json) + ", " +
+      ((.exercises // []) | length | tostring) + ", " +
+      $now +
+      ");"
+    ] +
+    ["INSERT OR REPLACE INTO cache_meta (key, value) VALUES (\u0027workouts_last_refresh\u0027, \u0027" + $now + "\u0027);",
+     "COMMIT;"] |
+    .[]
+  ')
+
+  echo "$sql" | sqlite3 "$HEVY_CACHE_DB"
 
   success "Cached $count workouts"
 }
@@ -279,22 +279,28 @@ cache_workouts_upsert() {
   local now
   now=$(date +%s)
 
-  echo "$workouts_json" | jq -c '.[]? // .' | while read -r w; do
-    local id title routine_id start_time end_time exercise_count
-    id=$(echo "$w" | jq -r '.id // empty')
-    [[ -z "$id" ]] && continue
+  local sql
+  sql=$(echo "$workouts_json" | jq -r --arg now "$now" '
+    [if type == "array" then .[] else . end | select(.id != null)] |
+    if length == 0 then empty else
+      ["BEGIN TRANSACTION;"] +
+      [.[] |
+        "INSERT OR REPLACE INTO workouts (id, title, routine_id, start_time, end_time, exercise_count, cached_at) VALUES (" +
+        (.id | @json) + ", " +
+        (.title | @json) + ", " +
+        ((.routine_id // "") | @json) + ", " +
+        (.start_time | @json) + ", " +
+        ((.end_time // "") | @json) + ", " +
+        ((.exercises // []) | length | tostring) + ", " +
+        $now +
+        ");"
+      ] +
+      ["COMMIT;"] |
+      .[]
+    end
+  ')
 
-    title=$(echo "$w" | jq -r '.title')
-    routine_id=$(echo "$w" | jq -r '.routine_id // ""')
-    start_time=$(echo "$w" | jq -r '.start_time')
-    end_time=$(echo "$w" | jq -r '.end_time // ""')
-    exercise_count=$(echo "$w" | jq -r '.exercises | length')
-
-    # Escape single quotes for SQL
-    title="${title//\'/\'\'}"
-
-    sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO workouts (id, title, routine_id, start_time, end_time, exercise_count, cached_at) VALUES ('$id', '$title', '$routine_id', '$start_time', '$end_time', $exercise_count, $now)"
-  done
+  [[ -n "$sql" ]] && echo "$sql" | sqlite3 "$HEVY_CACHE_DB"
 }
 
 # ============================================================================
@@ -316,36 +322,30 @@ cache_routines_refresh() {
   count=$(echo "$routines" | jq 'length')
   debug "Fetched $count routines"
 
-  # Clear existing routines
-  sqlite3 "$HEVY_CACHE_DB" "DELETE FROM routines"
-
-  # Insert all routines
-  echo "$routines" | jq -c '.[]' | while read -r r; do
-    local id title folder_id exercise_count updated_at
-    id=$(echo "$r" | jq -r '.id')
-    title=$(echo "$r" | jq -r '.title')
-    folder_id=$(echo "$r" | jq -r '.folder_id // "NULL"')
-    exercise_count=$(echo "$r" | jq -r '.exercises | length')
-    updated_at=$(echo "$r" | jq -r '.updated_at // ""')
-
-    # Escape single quotes for SQL
-    title="${title//\'/\'\'}"
-
-    local now
-    now=$(date +%s)
-
-    # Handle NULL folder_id properly
-    if [[ "$folder_id" == "NULL" || "$folder_id" == "null" ]]; then
-      sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO routines (id, title, folder_id, exercise_count, updated_at, cached_at) VALUES ('$id', '$title', NULL, $exercise_count, '$updated_at', $now)"
-    else
-      sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO routines (id, title, folder_id, exercise_count, updated_at, cached_at) VALUES ('$id', '$title', $folder_id, $exercise_count, '$updated_at', $now)"
-    fi
-  done
-
-  # Update refresh timestamp
+  # Build SQL batch: clear + insert all routines in a single transaction
   local now
   now=$(date +%s)
-  sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO cache_meta (key, value) VALUES ('routines_last_refresh', '$now')"
+
+  local sql
+  sql=$(echo "$routines" | jq -r --arg now "$now" '
+    ["BEGIN TRANSACTION;",
+     "DELETE FROM routines;"] +
+    [.[] |
+      "INSERT OR REPLACE INTO routines (id, title, folder_id, exercise_count, updated_at, cached_at) VALUES (" +
+      (.id | @json) + ", " +
+      (.title | @json) + ", " +
+      (if .folder_id == null then "NULL" else (.folder_id | tostring) end) + ", " +
+      ((.exercises // []) | length | tostring) + ", " +
+      ((.updated_at // "") | @json) + ", " +
+      $now +
+      ");"
+    ] +
+    ["INSERT OR REPLACE INTO cache_meta (key, value) VALUES (\u0027routines_last_refresh\u0027, \u0027" + $now + "\u0027);",
+     "COMMIT;"] |
+    .[]
+  ')
+
+  echo "$sql" | sqlite3 "$HEVY_CACHE_DB"
 
   success "Cached $count routines"
 }
