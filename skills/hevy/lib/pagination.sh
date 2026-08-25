@@ -22,8 +22,10 @@ paginate_all() {
   fi
 
   local page=1
-  local all_items="[]"
   local page_count=1
+  local tmpfile
+  tmpfile=$(mktemp)
+  trap 'rm -f "$tmpfile"' EXIT
 
   while [[ $page -le $page_count ]]; do
     debug "Fetching page $page of $page_count"
@@ -37,7 +39,7 @@ paginate_all() {
     fi
 
     local response
-    response=$(api_get "$url") || return 1
+    response=$(api_get "$url") || { rm -f "$tmpfile"; return 1; }
 
     # Get page count from first response
     if [[ $page -eq 1 ]]; then
@@ -45,18 +47,15 @@ paginate_all() {
       debug "Total pages: $page_count"
     fi
 
-    # Extract items from this page
-    local items
-    items=$(echo "$response" | jq -r ".${array_key} // []")
-
-    # Merge with accumulated items
-    all_items=$(echo "$all_items" "$items" | jq -s 'add')
+    # Append items from this page (one JSON array per line)
+    echo "$response" | jq -c ".${array_key} // []" >> "$tmpfile"
 
     ((page++))
   done
 
-  # Return merged array
-  echo "$all_items"
+  # Merge all page arrays in a single jq pass
+  jq -s 'add // []' "$tmpfile"
+  rm -f "$tmpfile"
 }
 
 # Fetch all pages and return as object with metadata

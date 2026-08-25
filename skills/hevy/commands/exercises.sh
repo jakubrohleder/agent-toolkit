@@ -256,9 +256,8 @@ exercises_create() {
     title=$(echo "$response" | jq -r '.exercise_template.title // .title // "unknown"')
     success "Created exercise: $title (ID: $id)"
 
-    # Refresh cache to include new exercise
-    info "Refreshing cache..."
-    cache_refresh
+    # Insert just the new exercise into cache (avoid full refresh)
+    cache_exercise_upsert "$(echo "$response" | jq '.exercise_template // .')"
   fi
 }
 

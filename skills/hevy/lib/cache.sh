@@ -390,27 +390,23 @@ cache_routine_upsert() {
   local routine_json="$1"
   ensure_cache_tables
 
-  local id title folder_id exercise_count updated_at
-  id=$(echo "$routine_json" | jq -r '.id // empty')
-  [[ -z "$id" ]] && return 1
-
-  title=$(echo "$routine_json" | jq -r '.title')
-  folder_id=$(echo "$routine_json" | jq -r '.folder_id // "NULL"')
-  exercise_count=$(echo "$routine_json" | jq -r '.exercises | length')
-  updated_at=$(echo "$routine_json" | jq -r '.updated_at // ""')
-
-  # Escape single quotes for SQL
-  title="${title//\'/\'\'}"
-
   local now
   now=$(date +%s)
 
-  # Handle NULL folder_id properly
-  if [[ "$folder_id" == "NULL" || "$folder_id" == "null" ]]; then
-    sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO routines (id, title, folder_id, exercise_count, updated_at, cached_at) VALUES ('$id', '$title', NULL, $exercise_count, '$updated_at', $now)"
-  else
-    sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO routines (id, title, folder_id, exercise_count, updated_at, cached_at) VALUES ('$id', '$title', $folder_id, $exercise_count, '$updated_at', $now)"
-  fi
+  # Extract all fields in a single jq call and generate SQL directly
+  local sql
+  sql=$(echo "$routine_json" | jq -r --arg now "$now" '
+    select(.id != null) |
+    "INSERT OR REPLACE INTO routines (id, title, folder_id, exercise_count, updated_at, cached_at) VALUES (" +
+    (.id | @json) + ", " +
+    (.title | @json) + ", " +
+    (if .folder_id == null then "NULL" else (.folder_id | tostring) end) + ", " +
+    ((.exercises // []) | length | tostring) + ", " +
+    ((.updated_at // "") | @json) + ", " +
+    $now + ");"
+  ')
+
+  [[ -n "$sql" ]] && sqlite3 "$HEVY_CACHE_DB" "$sql"
 }
 
 # List all cached routines
@@ -474,6 +470,29 @@ cache_search() {
   "
 }
 
+# Upsert single exercise into cache
+# Usage: cache_exercise_upsert "$exercise_json"
+cache_exercise_upsert() {
+  local exercise_json="$1"
+  ensure_cache_db
+
+  local sql
+  sql=$(echo "$exercise_json" | jq -r '
+    select(.id != null) |
+    "INSERT OR REPLACE INTO exercises (id, title, type, primary_muscle_group, secondary_muscle_groups, equipment, is_custom) VALUES (" +
+    (.id | @json) + ", " +
+    (.title | @json) + ", " +
+    (.type | @json) + ", " +
+    ((.primary_muscle_group // "") | @json) + ", " +
+    ((.secondary_muscle_groups // [] | join(",")) | @json) + ", " +
+    ((.equipment // "") | @json) + ", " +
+    (if .is_custom then "1" else "0" end) +
+    ");"
+  ')
+
+  [[ -n "$sql" ]] && sqlite3 "$HEVY_CACHE_DB" "$sql"
+}
+
 # Get exercise by ID
 # Usage: cache_get "D04AC939" -> exercise JSON
 cache_get() {
@@ -500,15 +519,7 @@ cache_get() {
     fi
 
     # Cache the fetched exercise
-    local ex_title ex_type ex_muscle ex_secondary ex_equipment ex_custom
-    ex_title=$(echo "$exercise" | jq -r '.title')
-    ex_type=$(echo "$exercise" | jq -r '.type')
-    ex_muscle=$(echo "$exercise" | jq -r '.primary_muscle_group // ""')
-    ex_secondary=$(echo "$exercise" | jq -r '.secondary_muscle_groups // [] | join(",")')
-    ex_equipment=$(echo "$exercise" | jq -r '.equipment // ""')
-    ex_custom=$(echo "$exercise" | jq -r 'if .is_custom then 1 else 0 end')
-    ex_title="${ex_title//\'/\'\'}"
-    sqlite3 "$HEVY_CACHE_DB" "INSERT OR REPLACE INTO exercises (id, title, type, primary_muscle_group, secondary_muscle_groups, equipment, is_custom) VALUES ('$id', '$ex_title', '$ex_type', '$ex_muscle', '$ex_secondary', '$ex_equipment', $ex_custom)"
+    cache_exercise_upsert "$exercise"
 
     echo "$exercise"
   else

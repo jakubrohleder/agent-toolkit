@@ -94,34 +94,9 @@ workouts_list() {
 
   local workouts
 
-  # Use cache when no date filters (cache has all workouts)
-  # Date filters require API since cache may not have complete history
-  if [[ -z "$from_date" && -z "$to_date" ]]; then
-    workouts=$(cache_workouts_list "" "" "$limit")
-  else
-    # Fetch from API for date-filtered queries
-    workouts=$(paginate_all "/v1/workouts" "workouts") || exit 1
-
-    # Upsert fetched workouts into cache for future use
-    cache_workouts_upsert "$workouts"
-
-    # Filter by date range
-    if [[ -n "$from_date" ]]; then
-      workouts=$(echo "$workouts" | jq --arg from "$from_date" '[.[] | select(.start_time >= $from)]')
-    fi
-    if [[ -n "$to_date" ]]; then
-      local to_end="${to_date}T23:59:59"
-      workouts=$(echo "$workouts" | jq --arg to "$to_end" '[.[] | select(.start_time <= $to)]')
-    fi
-
-    # Sort by date descending
-    workouts=$(echo "$workouts" | jq 'sort_by(.start_time) | reverse')
-
-    # Limit results
-    if [[ -n "$limit" ]]; then
-      workouts=$(echo "$workouts" | jq --argjson n "$limit" '.[:$n]')
-    fi
-  fi
+  # Use cache for all queries (cache supports date filters via SQL WHERE)
+  # Cache auto-refreshes on first use; run 'hevy cache refresh' for latest data
+  workouts=$(cache_workouts_list "$from_date" "$to_date" "$limit")
 
   local count
   count=$(echo "$workouts" | jq 'length')
@@ -141,7 +116,7 @@ workouts_list() {
       (.start_time | split("T")[0]),
       (if .end_time and .start_time then
         # Handle timezone offset by replacing +00:00 with Z for fromdateiso8601
-        ((((.end_time | sub("\\+00:00$"; "Z")) | sub("\\+00:00$"; "Z") | fromdateiso8601) - (((.start_time | sub("\\+00:00$"; "Z")) | sub("\\+00:00$"; "Z") | fromdateiso8601))) / 60 | floor | tostring) + "m"
+        ((((.end_time | sub("\\+00:00$"; "Z")) | fromdateiso8601) - ((.start_time | sub("\\+00:00$"; "Z")) | fromdateiso8601)) / 60 | floor | tostring) + "m"
       else "?" end),
       (.exercise_count // (.exercises | length))
     ] | @tsv' | table
@@ -266,6 +241,8 @@ workouts_export() {
     esac
   done
 
+  # Export needs full workout details (exercises/sets) — cache only stores summaries
+  # Fetch from API but use date-filtered pagination where possible
   local workouts
   workouts=$(paginate_all "/v1/workouts" "workouts") || exit 1
 

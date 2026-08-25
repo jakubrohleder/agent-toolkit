@@ -1,0 +1,6 @@
+interface:
+  display_name: "Simplify PR Logic"
+  short_description: "Challenge PR logic with refactoring hypotheses"
+  default_prompt: "Use $simplify-pr-logic to analyze this PR for deeper logic simplifications."
+policy:
+  allow_implicit_invocation: false
