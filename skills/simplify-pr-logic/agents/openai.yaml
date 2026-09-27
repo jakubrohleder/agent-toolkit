@@ -1,6 +1,6 @@
 interface:
   display_name: "Simplify PR Logic"
-  short_description: "Challenge PR logic with refactoring hypotheses"
-  default_prompt: "Use $simplify-pr-logic to analyze this PR for deeper logic simplifications."
+  short_description: "Simplify PR logic, trim leftovers, and commit fixes"
+  default_prompt: "Use $simplify-pr-logic to create or sync this PR with the latest main, then apply verified simplifications and bug fixes, remove obsolete implementation artifacts, verify the changes, and commit and push them."
 policy:
   allow_implicit_invocation: false

@@ -1,11 +1,18 @@
 ---
 name: simplify-pr-logic
-description: Analyze a pull request against origin/main for high-leverage logic simplifications, deeper PR-anchored refactors, clearer module ownership, and interfaces that prevent misuse. Use only when explicitly invoked to generate and adversarially test refactoring hypotheses; do not use for generic code review, correctness, style, lint, security, test coverage, or repository-wide cleanup.
+description: Create or reuse a pull request, sync its branch with the latest origin/main, then apply and commit verified PR-anchored logic simplifications, bug fixes, and cleanup of obsolete implementation artifacts. Use only when explicitly invoked; not for generic code review, correctness, style, lint, security, test coverage, or repository-wide cleanup.
 ---
 
 # Simplify PR Logic
 
-Analyze first. Do not edit code unless the user explicitly authorizes implementation.
+Prepare and synchronize the PR before analysis. Invocation authorizes routine Git and GitHub
+operations for that PR: fetch, a non-rewriting merge from the latest `origin/main`, creation of a
+missing PR, implementation of accepted simplifications and proven bug fixes, removal or trimming of
+obsolete PR-related implementation artifacts, commits of those changes, and normal push. Carry the
+work through verification and commit without a separate implementation approval. Honor an explicit
+analysis-only or no-push request. Invocation does not authorize merging the PR, force-pushing, or
+discarding user work. Ask before making a product-sensitive choice; continue independent accepted
+work while that choice remains unresolved.
 
 Optimize for the reasoning burden of the complete logic thread, not line count. Prefer fewer concepts,
 states, branches, ownership crossings, temporal constraints, and facts held in mind. Generalize only
@@ -29,24 +36,38 @@ are cohesive and the end-to-end flow becomes easier to reconstruct.
   security, persistence, and test seams when they still carry real responsibilities.
 - Exclude formatting, naming nits, lint, generic correctness review, test-coverage commentary,
   security review, and unrelated cleanup.
-- Preserve user changes. Never stash, discard, reset, or rewrite work to prepare the analysis.
+- Preserve pre-existing staged, unstaged, and untracked user work throughout the workflow. Never
+  stash, discard, reset, rewrite history, or include that work in a skill-generated commit without
+  explicit authorization. Never create a duplicate PR.
 
-## 1. Establish The Baseline
+## 1. Prepare The PR And Establish The Baseline
 
-1. Read the repository instructions and the smallest set of authoritative design, product, and testing
-   docs needed to interpret the changed code.
-2. Inspect branch and worktree state.
-3. Fetch `origin/main`. If fetching is unavailable, continue only when `origin/main` exists and report
-   that its freshness is unverified.
-4. Measure ahead/behind state with merge-base semantics. If `HEAD` is behind `origin/main`, stop and
-   report the exact state. Ask permission before merging `origin/main`; never merge with a dirty
-   worktree or resolve conflicts by assumption. After an authorized successful merge, restart the
-   analysis from the new diff.
-5. Use `origin/main...HEAD` as the PR comparison. Inventory commits, changed paths, renames,
-   deletions, and the complete diff.
-6. Inventory staged, unstaged, and untracked files separately. Label them local-only and do not
-   misrepresent them as part of the PR.
-7. If there is no PR diff and no relevant local-only work, report that and stop.
+1. Read repository instructions and the smallest set of authoritative design, product, and testing
+   docs needed to interpret the changed code. Inspect branch, worktree, remote, and local changes.
+2. Resolve the target PR from a user-supplied URL or number, then from the current non-default
+   branch. Reuse an open PR for that head; if several PRs or branches are plausible, ask which one.
+   Confirm its base is `main`. Do not retarget a stacked or exceptional PR by assumption.
+3. Fetch `origin/main` and the existing PR head, if any. Record their commit IDs. If the fetch
+   fails, stop: the requested latest-main synchronization cannot be verified.
+4. Inventory staged, unstaged, and untracked files separately and retain this baseline for final
+   staging checks. Keep pre-existing local work out of synchronization and implementation commits.
+   Use a clean worktree for the target branch when one exists. If local work prevents a safe merge
+   or cannot be separated from required edits, report the exact blocker; do not absorb it.
+5. Compare the target branch with the fetched `origin/main` using merge-base semantics. If behind,
+   merge `origin/main` into the branch without rebasing or rewriting history. Resolve only conflicts
+   whose intended result is clear from current code and contracts; stop on ambiguous or
+   product-sensitive conflicts. For an existing PR, push the synchronized branch normally. If its
+   remote head advanced, fetch and integrate it before retrying the push.
+6. If no PR exists, require a non-default branch with a committed diff against `origin/main`.
+   Push that branch normally, then create one non-draft PR targeting `main` with a title and body
+   grounded in the existing change. Do not create an empty or placeholder PR. Confirm the PR URL,
+   base, and remote head commit. If the branch cannot be pushed or the PR cannot be created, report
+   the exact blocker and do not substitute another branch or PR. Attach a newly created PR to
+   the task when the harness supports PR artifacts.
+7. Restart the analysis from the synchronized `origin/main...HEAD` diff. Inventory commits,
+   changed paths, renames, deletions, and the complete diff. Do not rely on a pre-sync file list or
+   hypothesis. If there is no PR diff, report that and stop; describe any local-only work
+   separately.
 
 When available, inspect the PR description, linked issue or spec, commit messages, tests, contracts,
 and repository guidance. Prefer executable contracts and current authoritative docs over stale PR
@@ -73,6 +94,26 @@ For each meaningful changed concept:
 
 Do not equate unfamiliarity with complexity. Understand the full thread before proposing a shape.
 
+Also inventory implementation artifacts introduced, changed, or made obsolete by the PR, including
+plans, task checklists, experiment notes, scratch reports, temporary scripts, and one-off fixtures.
+Inspect their contents, references, consumers, and repository retention rules. Include artifacts
+outside the diff only when there is a concrete link to this PR; do not sweep unrelated old docs.
+
+For each artifact, determine whether it still helps someone operate, maintain, debug, reproduce,
+extend, or understand the shipped system:
+
+- Remove completed plans, abandoned approaches, duplicated explanations, transient logs, and other
+  artifacts with no remaining use. A filename or age alone is not evidence that a file is disposable.
+- If a temporary document contains durable decisions, constraints, or reproducible evidence, move
+  only that useful information into the appropriate maintained documentation before deleting or
+  trimming the rest. Update references so cleanup leaves no broken links or consumers.
+- Preserve active plans, useful experiment methods/results, architectural rationale, runbooks,
+  migration guidance, required records, and still-used scripts or fixtures. If future value or
+  ownership is uncertain, retain the material and classify the cleanup as unresolved.
+
+Treat supported artifact cleanup as an actionable finding even when no code simplification survives.
+Do not add a new checked-in plan or report merely to document this workflow.
+
 ## 3. Generate Independent Hypotheses
 
 Use at least three subagents. Keep their contexts independent until critique:
@@ -80,19 +121,21 @@ Use at least three subagents. Keep their contexts independent until critique:
 1. Start two hypothesis generators concurrently from raw repository evidence:
    - **Flow generator:** simplify control flow, data flow, state, policy propagation, and branching.
    - **Interface generator:** challenge responsibility placement, module boundaries, abstractions,
-     feature-flag design, invalid states, and misuse-prone interfaces.
+     feature-flag design, invalid states, and misuse-prone interfaces. Also assess the artifact
+     inventory for obsolete implementation leftovers and useful information that must survive.
 2. Start one critic concurrently. Give the critic the raw change, relevant repository constraints,
    and target threads, but no generated hypotheses. Ask it to independently map invariants, hidden
-   consumers, boundary responsibilities, and reasons tempting refactors may fail.
+   consumers, boundary responsibilities, documentation retention needs, and reasons tempting
+   refactors or deletions may fail.
 3. Do not tell any agent the expected answer or another agent's conclusions.
-4. Require read-only work. Subagents must not edit files.
+4. Keep these discovery and critique passes read-only. The parent applies verified findings later.
 
 Require each generator to return only material candidates using this schema:
 
 - title and PR anchor
 - current logic thread and reasoning burden
 - proposed responsibility, flow, or interface
-- concepts, states, branches, or misuse paths removed
+- concepts, states, branches, misuse paths, or obsolete artifacts removed
 - supporting evidence
 - strongest disconfirming evidence
 - observable invariants and contracts to preserve
@@ -125,58 +168,62 @@ presence alone does not justify complexity.
 Classify each material candidate:
 
 - **Accepted:** concretely PR-anchored; preserves intended behavior and external contracts; reduces
-  total conceptual complexity or demonstrated misuse risk; and has bounded, understood costs.
+  total conceptual complexity or demonstrated misuse risk, or removes implementation artifacts
+  shown to have no remaining use; and has bounded, understood costs.
 - **Rejected:** tempting but contradicted by evidence, dependent on speculative generalization, or
   likely to move or increase complexity.
 - **Unresolved:** potentially high-leverage but blocked by ambiguous intent or missing evidence.
   State exactly what evidence would resolve it.
 
 Rank accepted hypotheses by net leverage: reasoning and misuse reduction relative to implementation
-cost and behavioral risk. Omit low-value cleanup.
+cost and behavioral risk. Include supported artifact cleanup; omit cosmetic churn.
 
 Classify a discovered bug separately only when there is a concrete failing scenario, violated
 invariant, or authoritative contract mismatch. Keep it anchored to the investigated logic thread.
 Do not use a bug as permission for a broader sweep.
 
-## 6. Report
+## 6. Apply, Verify, And Commit
 
-Produce a synthesized report, not raw subagent transcripts.
+1. Implement accepted simplifications, proven bug fixes with a clear intended result, and supported
+   artifact cleanup in small coherent steps. Preserve repository architecture and migration rules.
+   Do not implement rejected or unresolved ideas, and do not stop at an implementation proposal.
+2. Verify each step with relevant existing checks. For a proven bug, reproduce the failing scenario
+   and verify the fix; add a focused regression test when it provides lasting value. Run required
+   repository checks and tests appropriate to the affected behavior. For artifact cleanup, check
+   references and affected documentation builds or script consumers where applicable.
+3. Re-read the complete resulting PR diff and affected threads. Confirm that complexity was removed
+   rather than displaced, contracts remain intact, useful documentation survived, and no temporary
+   artifacts from this workflow remain. Reassess any finding invalidated during implementation.
+4. Compare the worktree and index with the initial local-work inventory. Stage only changes made by
+   this workflow, using explicit paths or selected hunks. Inspect the staged diff before each commit;
+   never let pre-existing staged work enter the commit. If it cannot be safely separated, report
+   the blocker rather than committing a mixture.
+5. Commit verified changes with descriptive messages, grouping related code, tests, and docs.
+   Do not amend existing commits, create empty commits, or bypass failing hooks. If a required check
+   fails or cannot run, diagnose it and report any remaining blocker; do not label unverified work
+   complete. Commit independent verified changes only when they remain coherent on their own.
+6. Push the new commits normally to the same PR branch unless the user requested otherwise. If the
+   remote head advanced, fetch and integrate it without rewriting history, inspect the incoming
+   changes, and repeat affected checks before retrying. Stop if concurrent changes leave intent or
+   verification unresolved. Confirm the remote PR head matches the intended local commit; if push
+   fails, preserve local commits and report the blocker and their hashes.
+7. Check final repository status and confirm pre-existing local work is preserved. If no actionable
+   finding survived, make no implementation commit and report the no-change result.
 
-### Scope and evidence
+## 7. Report The Result
 
-State the base, synchronization and freshness status, commits and files reviewed, local-only work,
-anchored threads followed, authoritative evidence used, and focused checks run.
+Produce a concise synthesized result, not raw subagent transcripts or a checked-in review report:
 
-### Accepted hypotheses
+- PR URL, created/reused status, fetched `origin/main` commit, synchronization status, and reviewed
+  scope. Identify any pre-existing local-only work excluded from commits.
+- Applied simplifications and bug fixes: the previous reasoning burden or failing scenario, the
+  resulting model, and the evidence and preserved contracts supporting the change.
+- Artifacts deleted or trimmed, why they had no remaining use, and where any durable information
+  was retained.
+- Checks run and their outcomes, commit hashes, push status, and verified remote head. Distinguish
+  completed work from uncommitted or unpushed work and explain any blockers.
+- Material unresolved findings and the evidence needed to decide them; briefly include the strongest
+  rejected alternatives when they help explain an important tradeoff.
 
-For each accepted hypothesis, provide:
-
-1. **Current model:** the end-to-end thread and why it is hard to reason about.
-2. **Proposed model:** the new responsibility, flow, or interface shape.
-3. **Simplification:** the concepts, states, branches, ownership crossings, or misuse paths removed.
-4. **Evidence:** support, strongest counterargument, and adjudicated verdict.
-5. **Safety:** preserved invariants and contracts, affected neighborhood, risks, and confidence.
-6. **Execution:** a small implementation sequence with focused verification points.
-
-### Bugs
-
-Report proven bugs separately with the failing scenario or violated invariant. Do not edit unless
-authorized.
-
-### Unresolved hypotheses
-
-Include only material opportunities and the evidence needed to decide them.
-
-### Strongest rejected hypotheses
-
-Briefly explain the most plausible rejected alternatives and the evidence that ruled them out.
-
-If no hypothesis survives critique, say so directly. A well-supported no-change result is preferable
-to manufacturing a refactor.
-
-## Authorized Follow-Up
-
-If the user explicitly authorizes implementation, change only accepted hypotheses within the agreed
-scope. Preserve repository architecture and migration rules, verify each coherent step, and re-read
-the final diff for displaced rather than removed complexity. Do not silently implement unresolved or
-rejected ideas.
+If no actionable finding survives critique, say so directly. A well-supported no-change result is
+preferable to manufacturing a refactor or deleting useful documentation.
